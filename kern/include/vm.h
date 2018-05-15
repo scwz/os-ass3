@@ -36,6 +36,19 @@
  * You'll probably want to add stuff here.
  */
 
+struct frame_table_entry {
+        struct frame_table_entry *next_free_frame;
+};
+
+struct page_table_entry {
+        uint32_t pid;                   /* process id */
+        vaddr_t pfn;                    /* physical frame number */
+        uint32_t elo;                   /* permissions in entrylo format */
+        struct page_table_entry *next;  /* link for collisons */
+};
+
+extern struct frame_table_entry *frame_table;
+extern struct page_table_entry **page_table;
 
 #include <machine/vm.h>
 
@@ -58,5 +71,10 @@ void free_kpages(vaddr_t addr);
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
 
+/* Frame table functions */
+void frame_table_create(void);
+
+/* Page table functions */
+void page_table_create(void);
 
 #endif /* _VM_H_ */
