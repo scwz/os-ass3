@@ -2,7 +2,9 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <synch.h>
+#include <proc.h>
 #include <thread.h>
+#include <current.h>
 #include <addrspace.h>
 #include <vm.h>
 #include <machine/tlb.h>
@@ -22,7 +24,8 @@ hpt_hash(struct addrspace *as, vaddr_t faultaddr)
         return index;
 }
 
-void page_table_init(void) 
+void 
+page_table_init(void) 
 {
         size_t i;
 
@@ -31,22 +34,39 @@ void page_table_init(void)
         }
 }
 
-void page_table_insert(void) 
+void 
+page_table_insert(struct addrspace *as, vaddr_t faultaddr) 
 {
-        struct addrspace *as;
-        as = 0;
-        vaddr_t faultaddr = 0;
-        hpt_hash(as, faultaddr);
+        struct page_table_entry *pt_entry = NULL;
+        uint32_t hash = hpt_hash(as, faultaddr);
+
+        pt_entry = kmalloc(sizeof(struct page_table_entry *));
+        pt_entry->pid = (uint32_t) as;
+        pt_entry->pfn = KVADDR_TO_PADDR(faultaddr);
+        pt_entry->elo = 0;
+        pt_entry->next = NULL;
+
+        lock_acquire(pt_lock);
+
+        if (page_table[hash] == NULL) {
+                page_table[hash] = pt_entry;
+        }
+        else {
+                page_table[hash]->next = pt_entry;
+        }
+
+        lock_release(pt_lock);
 }
 
-void page_table_get(void) 
+void 
+page_table_get(void) 
 {
 
 }
 
 void vm_bootstrap(void)
 {
-        size_t nframes;
+        unsigned int nframes;
         paddr_t top_of_ram = ram_getsize();
 
         nframes = top_of_ram / PAGE_SIZE;
@@ -67,10 +87,38 @@ void vm_bootstrap(void)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-        (void) faulttype;
+        struct addrspace *as;
         (void) faultaddress;
 
-        panic("vm_fault hasn't been written yet\n");
+        switch (faulttype) {
+                case VM_FAULT_READONLY:
+                        return EFAULT;
+                case VM_FAULT_READ:
+                case VM_FAULT_WRITE:
+                        break;
+                default:
+                        return EINVAL;
+        }
+
+	if (curproc == NULL) {
+		/*
+		 * No process. This is probably a kernel fault early
+		 * in boot. Return EFAULT so as to panic instead of
+		 * getting into an infinite faulting loop.
+		 */
+		return EFAULT;
+	}
+
+	as = proc_getas();
+	if (as == NULL) {
+		/*
+		 * No address space set up. This is probably also a
+		 * kernel fault early in boot.
+		 */
+		return EFAULT;
+	}
+
+        panic("vm_fault hasn't been completed yet\n");
 
         return EFAULT;
 }

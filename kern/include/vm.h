@@ -30,6 +30,7 @@
 #ifndef _VM_H_
 #define _VM_H_
 
+struct addrspace;
 /*
  * VM system-related definitions.
  *
@@ -42,7 +43,7 @@ struct frame_table_entry {
 
 struct page_table_entry {
         uint32_t pid;                   /* process id */
-        vaddr_t pfn;                    /* physical frame number */
+        paddr_t pfn;                    /* physical frame number */
         uint32_t elo;                   /* permissions in entrylo format */
         struct page_table_entry *next;  /* link for collisons */
 };
@@ -76,7 +77,7 @@ void frame_table_init(size_t nframes);
 
 /* Page table functions */
 void page_table_init(void);
-void page_table_insert(void);
+void page_table_insert(struct addrspace *as, vaddr_t faultaddr);
 void page_table_get(void);
 
 #endif /* _VM_H_ */

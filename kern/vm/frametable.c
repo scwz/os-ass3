@@ -15,10 +15,10 @@ static struct frame_table_entry *free_frame_ptr = NULL;
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
-void frame_table_init(size_t nframes) 
+void frame_table_init(unsigned int nframes) 
 {
-        size_t i;
-        size_t firstfree;
+        unsigned int i;
+        unsigned int firstfree;
 
         /* reserve space for the frame and page tables */
         for (i = 0; i < nframes; i++) {
