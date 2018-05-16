@@ -75,6 +75,8 @@ void vm_tlbshootdown(const struct tlbshootdown *);
 void frame_table_init(size_t nframes);
 
 /* Page table functions */
-void page_table_init(size_t npages);
+void page_table_init(void);
+void page_table_insert(void);
+void page_table_get(void);
 
 #endif /* _VM_H_ */

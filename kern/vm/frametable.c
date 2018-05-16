@@ -21,12 +21,12 @@ void frame_table_init(size_t nframes)
         size_t firstfree;
 
         /* reserve space for the frame and page tables */
-        firstfree = ram_getfirstfree() / PAGE_SIZE;
         for (i = 0; i < nframes; i++) {
                 frame_table[i].next_free_frame = NULL;
         }
 
         /* make free frame list */
+        firstfree = ram_getfirstfree() / PAGE_SIZE;
         for (i = firstfree; i < nframes - 1; i++) {
                 frame_table[i].next_free_frame = &frame_table[i + 1];
         }
