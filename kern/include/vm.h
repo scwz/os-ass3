@@ -78,6 +78,6 @@ void frame_table_init(size_t nframes);
 /* Page table functions */
 void page_table_init(void);
 void page_table_insert(struct addrspace *as, vaddr_t faultaddr);
-void page_table_get(void);
+struct page_table_entry *page_table_get(struct addrspace *as, vaddr_t faultaddr);
 
 #endif /* _VM_H_ */

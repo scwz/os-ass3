@@ -43,7 +43,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
         pt_entry = kmalloc(sizeof(struct page_table_entry *));
         pt_entry->pid = (uint32_t) as;
         pt_entry->pfn = KVADDR_TO_PADDR(faultaddr);
-        pt_entry->elo = 0;
+        pt_entry->elo = 0;      // change this
         pt_entry->next = NULL;
 
         lock_acquire(pt_lock);
@@ -58,10 +58,25 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
         lock_release(pt_lock);
 }
 
-void 
-page_table_get(void) 
+struct page_table_entry *
+page_table_get(struct addrspace *as, vaddr_t faultaddr) 
 {
+        uint32_t pid;
+        uint32_t hash;
+        struct page_table_entry *pt_entry = NULL;
 
+        pid = (uint32_t) as;
+        hash = hpt_hash(as, faultaddr);
+
+        lock_acquire(pt_lock);
+
+        pt_entry = page_table[hash];
+        for (; pt_entry->pid != pid && pt_entry != NULL; 
+                        pt_entry = pt_entry->next);
+
+        lock_release(pt_lock);
+
+        return pt_entry;
 }
 
 void vm_bootstrap(void)
