@@ -48,6 +48,13 @@ struct vnode;
  * You write this.
  */
 
+struct region {
+        vaddr_t vbase;
+        size_t size;
+        int accmode;
+        struct region *next;
+};
+
 struct addrspace {
 #if OPT_DUMBVM
         vaddr_t as_vbase1;
@@ -59,6 +66,7 @@ struct addrspace {
         paddr_t as_stackpbase;
 #else
         /* Put stuff here for your VM system */
+        struct region *regions;
 #endif
 };
 

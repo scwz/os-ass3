@@ -61,6 +61,7 @@ as_create(void)
         /*
          * Initialize as needed.
          */
+        as->regions = NULL;
 
         return as;
 }
@@ -68,10 +69,11 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
-        struct addrspace *newas;
+        struct addrspace *new;
+        struct region *old_curr, *new_curr;
 
-        newas = as_create();
-        if (newas==NULL) {
+        new = as_create();
+        if (new == NULL) {
                 return ENOMEM;
         }
 
@@ -79,9 +81,17 @@ as_copy(struct addrspace *old, struct addrspace **ret)
          * Write this.
          */
 
-        (void)old;
+        old_curr = old->regions;
+        new_curr = new->regions;
+        for (; old_curr != NULL; old_curr = old_curr->next) {
+                new_curr = kmalloc(sizeof(struct region));
+                new_curr->vbase = old_curr->vbase;
+                new_curr->size = old_curr->size;
+                new_curr->accmode = old_curr->accmode;
+                new_curr = new_curr->next;
+        }
 
-        *ret = newas;
+        *ret = new;
         return 0;
 }
 
@@ -92,26 +102,37 @@ as_destroy(struct addrspace *as)
          * Clean up as needed.
          */
 
+        struct region *curr, *next; 
+
+        curr = as->regions;
+        while (curr != NULL) {
+                next = curr->next;
+                kfree(curr);
+                curr = next;
+        }
+
         kfree(as);
 }
 
 void
 as_activate(void)
 {
-        struct addrspace *as;
+	int i, spl;
+	struct addrspace *as;
 
-        as = proc_getas();
-        if (as == NULL) {
-                /*
-                 * Kernel thread without an address space; leave the
-                 * prior address space in place.
-                 */
-                return;
-        }
+	as = proc_getas();
+	if (as == NULL) {
+		return;
+	}
 
-        /*
-         * Write this.
-         */
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	spl = splhigh();
+
+	for (i=0; i<NUM_TLB; i++) {
+		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	}
+
+	splx(spl);
 }
 
 void
@@ -142,13 +163,34 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
          * Write this.
          */
 
-        (void)as;
-        (void)vaddr;
-        (void)memsize;
-        (void)readable;
-        (void)writeable;
-        (void)executable;
-        return ENOSYS; /* Unimplemented */
+        struct region *curr;
+
+	/* Align the region. First, the base... */
+	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+	vaddr &= PAGE_FRAME;
+
+	/* ...and now the length. */
+	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+
+        /* find empty region */
+        curr = as->regions;
+        for (; curr != NULL; curr = curr->next);
+
+        curr = kmalloc(sizeof(struct region));
+        if (curr == NULL) {
+                return ENOMEM;
+        }
+
+        curr->vbase = vaddr;
+        curr->size = memsize;
+        // leave regions as readwrite for now
+        //curr->accmode = readable | writeable | executable;
+        (void) readable;
+        (void) writeable;
+        (void) executable;
+        curr->next = NULL;
+
+        return 0; 
 }
 
 int
