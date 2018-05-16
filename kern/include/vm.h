@@ -73,7 +73,7 @@ void free_kpages(vaddr_t addr);
 void vm_tlbshootdown(const struct tlbshootdown *);
 
 /* Frame table functions */
-void frame_table_init(size_t nframes);
+void frame_table_init(unsigned int nframes);
 
 /* Page table functions */
 void page_table_init(void);

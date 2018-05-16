@@ -44,16 +44,11 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
         pt_entry->pid = (uint32_t) as;
         pt_entry->pfn = KVADDR_TO_PADDR(faultaddr);
         pt_entry->elo = 0;      // change this
-        pt_entry->next = NULL;
 
         lock_acquire(pt_lock);
 
-        if (page_table[hash] == NULL) {
-                page_table[hash] = pt_entry;
-        }
-        else {
-                page_table[hash]->next = pt_entry;
-        }
+        pt_entry->next = page_table[hash];
+        page_table[hash] = pt_entry;
 
         lock_release(pt_lock);
 }
