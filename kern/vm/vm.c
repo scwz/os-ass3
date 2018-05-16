@@ -7,16 +7,24 @@
 #include <machine/tlb.h>
 
 /* Place your page table functions here */
-void page_table_create(void) {
+struct page_table_entry **page_table = NULL;
 
+void page_table_init(size_t npages) {
+        (void) npages;
 }
 
 void vm_bootstrap(void)
 {
-        /* Initialise VM sub-system.  You probably want to initialise your 
-           frame table here as well.
-        */
-        frame_table_create();
+        size_t nframes, npages;
+        paddr_t top_of_ram = ram_getsize();
+
+        nframes = top_of_ram / PAGE_SIZE;
+        npages = nframes * 2;
+
+        page_table = kmalloc(npages * sizeof(struct page_table_entry));
+        frame_table = kmalloc(nframes * sizeof(struct frame_table_entry));
+        frame_table_init(nframes);
+        page_table_init(npages);
 }
 
 int

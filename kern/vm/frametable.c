@@ -12,37 +12,26 @@
 
 struct frame_table_entry *frame_table = NULL;
 static struct frame_table_entry *free_frame_ptr = NULL;
-struct page_table_entry **page_table = NULL;
 
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
-void frame_table_create(void) 
+void frame_table_init(size_t nframes) 
 {
         size_t i;
-        size_t nframes, npages, reserved;
-        paddr_t top_of_ram = ram_getsize();
-
-        nframes = top_of_ram / PAGE_SIZE;
-        npages = nframes * 2;
-
-        page_table = kmalloc(npages * sizeof(struct page_table_entry));
-        frame_table = kmalloc(nframes * sizeof(struct frame_table_entry));
+        size_t firstfree;
 
         /* reserve space for the frame and page tables */
-        reserved = ram_getfirstfree() / PAGE_SIZE;
+        firstfree = ram_getfirstfree() / PAGE_SIZE;
         for (i = 0; i < nframes; i++) {
                 frame_table[i].next_free_frame = NULL;
         }
-        /*
-        for (i = 0; i < npages; i++) {
-                page_table[i] = NULL;
-        }
-        */
 
-        for (i = reserved; i < nframes - 1; i++) {
-                frame_table[i].next_free_frame = &frame_table[i+1];
+        /* make free frame list */
+        for (i = firstfree; i < nframes - 1; i++) {
+                frame_table[i].next_free_frame = &frame_table[i + 1];
         }
-        free_frame_ptr = &frame_table[reserved];
+
+        free_frame_ptr = &frame_table[firstfree];
 }
 
 /* Note that this function returns a VIRTUAL address, not a physical 
@@ -66,7 +55,7 @@ vaddr_t alloc_kpages(unsigned int npages)
                         return 0;
         }
         else {
-                KASSERT(npages == 1);
+                KASSERT(npages == 1);   // remove this line later
 
                 /* only allocate 1 page */
                 if (npages != 1) {
@@ -91,12 +80,12 @@ vaddr_t alloc_kpages(unsigned int npages)
 
 void free_kpages(vaddr_t addr)
 {
+        paddr_t paddr;
+        struct frame_table_entry *to_free;
+
         if (frame_table == NULL) {
                 return;
         }
-
-        paddr_t paddr;
-        struct frame_table_entry *to_free;
 
         paddr = KVADDR_TO_PADDR(addr);
 
