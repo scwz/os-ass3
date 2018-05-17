@@ -90,6 +90,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 new_curr->accmode = old_curr->accmode;
                 new_curr = new_curr->next;
         }
+        // memmove
 
         *ret = new;
         return 0;
@@ -173,8 +174,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
 
         /* find empty region */
-        curr = as->regions;
-        for (; curr != NULL; curr = curr->next);
+        for (curr = as->regions; curr != NULL; curr = curr->next);
 
         curr = kmalloc(sizeof(struct region));
         if (curr == NULL) {

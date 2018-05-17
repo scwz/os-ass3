@@ -43,7 +43,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
         pt_entry = kmalloc(sizeof(struct page_table_entry *));
         pt_entry->pid = (uint32_t) as;
         pt_entry->pfn = KVADDR_TO_PADDR(faultaddr);
-        pt_entry->elo = 0;      // change this
+        pt_entry->elo = faultaddr | TLB_VALID; 
 
         lock_acquire(pt_lock);
 
