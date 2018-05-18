@@ -43,7 +43,7 @@ struct frame_table_entry {
 
 struct page_table_entry {
         uint32_t pid;                   /* process id */
-        paddr_t pfn;                    /* physical frame number */
+        vaddr_t vpn;                    /* virtual page number */
         uint32_t elo;                   /* permissions in entrylo format */
         struct page_table_entry *next;  /* link for collisons */
 };
@@ -77,7 +77,7 @@ void frame_table_init(unsigned int nframes);
 
 /* Page table functions */
 void page_table_init(void);
-void page_table_insert(struct addrspace *as, vaddr_t faultaddr);
+void page_table_insert(struct addrspace *as, vaddr_t faultaddr, paddr_t paddr);
 struct page_table_entry *page_table_get(struct addrspace *as, vaddr_t faultaddr);
 
 #endif /* _VM_H_ */

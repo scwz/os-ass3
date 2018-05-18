@@ -35,15 +35,15 @@ page_table_init(void)
 }
 
 void 
-page_table_insert(struct addrspace *as, vaddr_t faultaddr) 
+page_table_insert(struct addrspace *as, vaddr_t faultaddr, paddr_t paddr) 
 {
         struct page_table_entry *pt_entry = NULL;
         uint32_t hash = hpt_hash(as, faultaddr);
 
         pt_entry = kmalloc(sizeof(struct page_table_entry *));
         pt_entry->pid = (uint32_t) as;
-        pt_entry->pfn = KVADDR_TO_PADDR(faultaddr);
-        pt_entry->elo = faultaddr | TLB_VALID; 
+        pt_entry->vpn = faultaddr;
+        pt_entry->elo = paddr | TLBLO_VALID | TLBLO_DIRTY; 
 
         lock_acquire(pt_lock);
 
@@ -65,9 +65,9 @@ page_table_get(struct addrspace *as, vaddr_t faultaddr)
 
         lock_acquire(pt_lock);
 
-        pt_entry = page_table[hash];
-        for (; pt_entry->pid != pid && pt_entry != NULL; 
-                        pt_entry = pt_entry->next);
+        for (pt_entry = page_table[hash]; 
+                        !(pt_entry->pid == pid && pt_entry->vpn == faultaddr) 
+                        && pt_entry != NULL; pt_entry = pt_entry->next);
 
         lock_release(pt_lock);
 
