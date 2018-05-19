@@ -14,7 +14,7 @@
 struct page_table_entry **page_table = NULL;
 static size_t hpt_size = 0;
 
-static struct lock *pt_lock = NULL;
+static struct lock *pt_lock;
 
 static uint32_t
 hpt_hash(struct addrspace *as, vaddr_t faultaddr) 
@@ -35,8 +35,9 @@ page_table_init(void)
         }
 }
 
-int
-page_table_insert(struct addrspace *as, vaddr_t faultaddr) 
+struct page_table_entry *
+page_table_insert(struct addrspace *as, vaddr_t faultaddr, 
+                struct region *region) 
 {
         vaddr_t vaddr;
         struct page_table_entry *pt_entry = NULL;
@@ -44,14 +45,18 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
 
         pt_entry = kmalloc(sizeof(struct page_table_entry *));
         if (pt_entry == NULL) {
-                return ENOMEM;
+                return NULL;
         }
 
         vaddr = alloc_kpages(1);
 
         pt_entry->pid = (uint32_t) as;
         pt_entry->vpn = faultaddr;
-        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
+        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID; 
+ 
+        if (region->accmode & TLBLO_DIRTY) {
+                pt_entry->elo |= TLBLO_DIRTY;
+        }
 
         lock_acquire(pt_lock);
 
@@ -60,7 +65,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr)
 
         lock_release(pt_lock);
 
-        return 0;
+        return pt_entry;
 }
 
 struct page_table_entry *
@@ -128,7 +133,7 @@ region_get(struct addrspace *as, vaddr_t faultaddress)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-        int spl, result;
+        int spl;
         struct addrspace *as;
         struct region *region;
         struct page_table_entry *pte;
@@ -164,7 +169,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         pte = page_table_get(as, faultaddress);
 
         if (pte == NULL) {
-                /* find region */
+                /* find valid region */
 
                 region = region_get(as, faultaddress);
 
@@ -172,9 +177,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return EFAULT;
                 }
 
-                result = page_table_insert(as, faultaddress);
-                if (result) {
-                        return result;
+                /* insert into page table */
+                pte = page_table_insert(as, faultaddress, region);
+                if (pte == NULL) {
+                        return ENOMEM;
                 }
         }
 
@@ -182,6 +188,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         spl = splhigh();
         tlb_random(faultaddress, pte->elo);
         splx(spl);
+
         return 0;
 }
 

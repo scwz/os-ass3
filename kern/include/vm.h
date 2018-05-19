@@ -31,6 +31,7 @@
 #define _VM_H_
 
 struct addrspace;
+struct region;
 /*
  * VM system-related definitions.
  *
@@ -77,7 +78,9 @@ void frame_table_init(unsigned int nframes);
 
 /* Page table functions */
 void page_table_init(void);
-int page_table_insert(struct addrspace *as, vaddr_t faultaddr);
-struct page_table_entry *page_table_get(struct addrspace *as, vaddr_t faultaddr);
+struct page_table_entry *page_table_insert(struct addrspace *as, 
+                vaddr_t faultaddr, struct region *region);
+struct page_table_entry *page_table_get(struct addrspace *as, 
+                vaddr_t faultaddr);
 
 #endif /* _VM_H_ */
