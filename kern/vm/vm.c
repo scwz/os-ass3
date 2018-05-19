@@ -80,7 +80,6 @@ page_table_get(struct addrspace *as, vaddr_t faultaddr)
 
         lock_acquire(pt_lock);
 
-        pt_entry = page_table[hash];
         for (pt_entry = page_table[hash]; pt_entry != NULL; 
                                                 pt_entry = pt_entry->next) {
                 if (pt_entry->pid == pid && pt_entry->vpn == faultaddr) {
