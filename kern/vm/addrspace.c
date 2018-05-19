@@ -38,6 +38,8 @@
 #include <vm.h>
 #include <proc.h>
 
+#define STACK_PAGES 16
+
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -144,6 +146,7 @@ as_deactivate(void)
          * anything. See proc.c for an explanation of why it (might)
          * be needed.
          */
+        as_activate();
 }
 
 /*
@@ -160,10 +163,6 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
                  int readable, int writeable, int executable)
 {
-        /*
-         * Write this.
-         */
-
         struct region *curr;
 
 	/* Align the region. First, the base... */
@@ -172,9 +171,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
 	/* ...and now the length. */
 	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
-
-        /* find empty region */
-        for (curr = as->regions; curr != NULL; curr = curr->next);
 
         curr = kmalloc(sizeof(struct region));
         if (curr == NULL) {
@@ -188,7 +184,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         (void) readable;
         (void) writeable;
         (void) executable;
-        curr->next = NULL;
+        curr->next = as->regions;
+        as->regions = curr;
 
         return 0; 
 }
@@ -200,7 +197,7 @@ as_prepare_load(struct addrspace *as)
          * Write this.
          */
 
-        (void)as;
+        (void) as;
         return 0;
 }
 
@@ -218,15 +215,15 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-        /*
-         * Write this.
-         */
+        int result;
 
-        (void)as;
+        *stackptr = USERSTACK;
+        result = as_define_region(as, 
+                                USERSTACK - STACK_PAGES * PAGE_SIZE, 
+                                STACK_PAGES * PAGE_SIZE, 1, 1, 0);
 
         /* Initial user-level stack pointer */
-        *stackptr = USERSTACK;
 
-        return 0;
+        return result;
 }
 

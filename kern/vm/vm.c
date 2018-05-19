@@ -1,5 +1,6 @@
 #include <types.h>
 #include <kern/errno.h>
+#include <spl.h>
 #include <lib.h>
 #include <synch.h>
 #include <proc.h>
@@ -34,16 +35,23 @@ page_table_init(void)
         }
 }
 
-void 
-page_table_insert(struct addrspace *as, vaddr_t faultaddr, paddr_t paddr) 
+int
+page_table_insert(struct addrspace *as, vaddr_t faultaddr) 
 {
+        vaddr_t vaddr;
         struct page_table_entry *pt_entry = NULL;
         uint32_t hash = hpt_hash(as, faultaddr);
 
         pt_entry = kmalloc(sizeof(struct page_table_entry *));
+        if (pt_entry == NULL) {
+                return ENOMEM;
+        }
+
+        vaddr = alloc_kpages(1);
+
         pt_entry->pid = (uint32_t) as;
         pt_entry->vpn = faultaddr;
-        pt_entry->elo = paddr | TLBLO_VALID | TLBLO_DIRTY; 
+        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
 
         lock_acquire(pt_lock);
 
@@ -51,6 +59,8 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr, paddr_t paddr)
         page_table[hash] = pt_entry;
 
         lock_release(pt_lock);
+
+        return 0;
 }
 
 struct page_table_entry *
@@ -65,9 +75,14 @@ page_table_get(struct addrspace *as, vaddr_t faultaddr)
 
         lock_acquire(pt_lock);
 
-        for (pt_entry = page_table[hash]; 
-                        !(pt_entry->pid == pid && pt_entry->vpn == faultaddr) 
-                        && pt_entry != NULL; pt_entry = pt_entry->next);
+        pt_entry = page_table[hash];
+        for (pt_entry = page_table[hash]; pt_entry != NULL; 
+                                                pt_entry = pt_entry->next) {
+                if (pt_entry->pid == pid && pt_entry->vpn == faultaddr) {
+                        break;
+                }
+                pt_entry = pt_entry->next;
+        }
 
         lock_release(pt_lock);
 
@@ -94,11 +109,29 @@ void vm_bootstrap(void)
         }
 }
 
+static struct region *
+region_get(struct addrspace *as, vaddr_t faultaddress)
+{
+        vaddr_t vtop;
+        struct region *curr;
+
+        for (curr = as->regions; curr != NULL; curr = curr->next) {
+                vtop = curr->vbase + curr->size;
+                if (faultaddress >= curr->vbase && faultaddress < vtop) {
+                        return curr;
+                }
+        }
+
+        return NULL;
+}
+
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
+        int spl, result;
         struct addrspace *as;
-        (void) faultaddress;
+        struct region *region;
+        struct page_table_entry *pte;
 
         switch (faulttype) {
                 case VM_FAULT_READONLY:
@@ -128,9 +161,28 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-        panic("vm_fault hasn't been completed yet\n");
+        pte = page_table_get(as, faultaddress);
 
-        return EFAULT;
+        if (pte == NULL) {
+                /* find region */
+
+                region = region_get(as, faultaddress);
+
+                if (region == NULL) {
+                        return EFAULT;
+                }
+
+                result = page_table_insert(as, faultaddress);
+                if (result) {
+                        return result;
+                }
+        }
+
+        /* valid translation, write into tlb */
+        spl = splhigh();
+        tlb_random(faultaddress, pte->elo);
+        splx(spl);
+        return 0;
 }
 
 /*

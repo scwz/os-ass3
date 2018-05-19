@@ -51,8 +51,9 @@ vaddr_t alloc_kpages(unsigned int npages)
                 addr = ram_stealmem(npages);
                 spinlock_release(&stealmem_lock);
 
-                if(addr == 0)
+                if (addr == 0) {
                         return 0;
+                }
         }
         else {
                 KASSERT(npages == 1);   // remove this line later
