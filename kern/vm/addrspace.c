@@ -180,10 +180,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
         curr->vbase = vaddr;
         curr->size = memsize;
         // leave regions as readwrite for now
-        //curr->accmode = readable | writeable | executable;
-        (void) readable;
-        (void) writeable;
-        (void) executable;
+        curr->accmode = readable | writeable | executable;
+
         curr->next = as->regions;
         as->regions = curr;
 
@@ -221,12 +219,11 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
         int result;
 
+        /* Initial user-level stack pointer */
         *stackptr = USERSTACK;
         result = as_define_region(as, 
                                 USERSTACK - STACK_PAGES * PAGE_SIZE, 
                                 STACK_PAGES * PAGE_SIZE, 1, 1, 0);
-
-        /* Initial user-level stack pointer */
 
         return result;
 }

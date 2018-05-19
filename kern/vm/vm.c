@@ -83,14 +83,14 @@ page_table_get(struct addrspace *as, vaddr_t faultaddr)
         for (pt_entry = page_table[hash]; pt_entry != NULL; 
                                                 pt_entry = pt_entry->next) {
                 if (pt_entry->pid == pid && pt_entry->vpn == faultaddr) {
-                        break;
+                        lock_release(pt_lock);
+                        return pt_entry;
                 }
-                pt_entry = pt_entry->next;
         }
 
         lock_release(pt_lock);
 
-        return pt_entry;
+        return NULL;
 }
 
 void vm_bootstrap(void)
@@ -169,7 +169,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
         if (pte == NULL) {
                 /* find valid region */
-
                 region = region_get(as, faultaddress);
 
                 if (region == NULL) {
