@@ -165,12 +165,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 {
         struct region *curr;
 
-	/* Align the region. First, the base... */
-	memsize += vaddr & ~(vaddr_t)PAGE_FRAME;
+	/* align the region */
 	vaddr &= PAGE_FRAME;
-
-	/* ...and now the length. */
-	memsize = (memsize + PAGE_SIZE - 1) & PAGE_FRAME;
+        memsize = ROUNDUP(memsize, PAGE_SIZE);
 
         curr = kmalloc(sizeof(struct region));
         if (curr == NULL) {

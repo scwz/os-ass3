@@ -28,9 +28,7 @@ hpt_hash(struct addrspace *as, vaddr_t faultaddr)
 void 
 page_table_init(void) 
 {
-        size_t i;
-
-        for(i = 0; i < hpt_size; i++) {
+        for (size_t i = 0; i < hpt_size; i++) {
                 page_table[i] = NULL;
         }
 }
@@ -48,6 +46,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr,
                 return NULL;
         }
 
+        /* allocate a frame */
         vaddr = alloc_kpages(1);
 
         pt_entry->pid = (uint32_t) as;
@@ -71,8 +70,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr,
 struct page_table_entry *
 page_table_get(struct addrspace *as, vaddr_t faultaddr) 
 {
-        uint32_t pid;
-        uint32_t hash;
+        uint32_t pid, hash;
         struct page_table_entry *pt_entry = NULL;
 
         pid = (uint32_t) as;
