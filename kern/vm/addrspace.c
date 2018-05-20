@@ -179,7 +179,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
         curr->vbase = vaddr;
         curr->size = memsize;
-        // leave regions as readwrite for now
         curr->accmode = readable | writeable | executable;
 
         curr->next = as->regions;

@@ -137,6 +137,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
         struct region *region;
         struct page_table_entry *pte;
 
+        faultaddress &= PAGE_FRAME;
+
         switch (faulttype) {
                 case VM_FAULT_READONLY:
                         return EFAULT;
