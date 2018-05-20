@@ -52,10 +52,10 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr,
 
         pt_entry->pid = (uint32_t) as;
         pt_entry->vpn = faultaddr;
-        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID; 
+        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
  
         if (region->accmode & TLBLO_DIRTY) {
-                pt_entry->elo |= TLBLO_DIRTY;
+//                pt_entry->elo |= TLBLO_DIRTY;
         }
 
         lock_acquire(pt_lock);

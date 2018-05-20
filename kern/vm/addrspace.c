@@ -194,11 +194,6 @@ as_prepare_load(struct addrspace *as)
         /*
          * Write this.
          */
-        struct region *curr = as->regions;
-        for (; curr != NULL; curr = curr->next) {
-                curr->accmode |= TLBLO_DIRTY;
-        }
-
         (void) as;
         return 0;
 }
