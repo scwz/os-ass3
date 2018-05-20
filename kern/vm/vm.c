@@ -41,7 +41,7 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr,
         struct page_table_entry *pt_entry = NULL;
         uint32_t hash = hpt_hash(as, faultaddr);
 
-        pt_entry = kmalloc(sizeof(struct page_table_entry *));
+        pt_entry = kmalloc(sizeof(struct page_table_entry));
         if (pt_entry == NULL) {
                 return NULL;
         }

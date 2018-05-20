@@ -73,6 +73,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 {
         struct addrspace *new;
         struct region *old_curr, *new_curr;
+        struct page_table_entry *new_pte, *old_pte;
 
         new = as_create();
         if (new == NULL) {
@@ -87,12 +88,26 @@ as_copy(struct addrspace *old, struct addrspace **ret)
         new_curr = new->regions;
         for (; old_curr != NULL; old_curr = old_curr->next) {
                 new_curr = kmalloc(sizeof(struct region));
+                if (new_curr == NULL) {
+                        as_destroy(new);
+                        return ENOMEM;
+                }
+
                 new_curr->vbase = old_curr->vbase;
                 new_curr->size = old_curr->size;
                 new_curr->accmode = old_curr->accmode;
+
+                old_pte = page_table_get(old, old_curr->vbase);
+                if (old_pte != NULL) {
+                        new_pte = page_table_insert(new, new_curr->vbase, new_curr);
+
+                        memmove((void *) PADDR_TO_KVADDR(new_pte->elo & TLBLO_PPAGE), 
+                                        (const void *) PADDR_TO_KVADDR(old_pte->elo & TLBLO_PPAGE), 
+                                        PAGE_SIZE);
+                }
+
                 new_curr = new_curr->next;
         }
-        // memmove
 
         *ret = new;
         return 0;
