@@ -128,6 +128,37 @@ region_get(struct addrspace *as, vaddr_t faultaddress)
 }
 
 int
+page_table_copy(struct addrspace *oldas, struct addrspace *newas) 
+{
+        uint32_t hash;
+        struct page_table_entry *pte, *new;
+        vaddr_t vaddr;
+
+        for (size_t i = 0; i < hpt_size; i++) {
+                lock_acquire(pt_lock);
+                for(pte = page_table[i]; pte != NULL; pte = pte->next) {
+                        if (pte->pid == (uint32_t) oldas) {
+                                new = kmalloc(sizeof(struct page_table_entry));
+                                vaddr = alloc_kpages(1);
+                                new->pid = (uint32_t) newas;
+                                new->vpn = pte->vpn;
+                                new->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_DIRTY | TLBLO_VALID;
+
+                                memmove((void *) PADDR_TO_KVADDR(new->elo & TLBLO_PPAGE),
+                                        (void *) PADDR_TO_KVADDR(pte->elo & TLBLO_PPAGE),
+                                        PAGE_SIZE);
+                                hash = hpt_hash(newas, new->vpn);
+                                new->next = page_table[hash];
+                                page_table[hash] = new;
+                        }
+                }
+                lock_release(pt_lock); 
+        }
+
+        return 0;
+}
+
+int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
         int spl;

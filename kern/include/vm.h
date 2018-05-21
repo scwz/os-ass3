@@ -82,5 +82,6 @@ struct page_table_entry *page_table_insert(struct addrspace *as,
                 vaddr_t faultaddr, struct region *region);
 struct page_table_entry *page_table_get(struct addrspace *as, 
                 vaddr_t faultaddr);
+int page_table_copy(struct addrspace *oldas, struct addrspace *newas);
 
 #endif /* _VM_H_ */

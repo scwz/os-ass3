@@ -40,6 +40,11 @@
 
 #define STACK_PAGES 16
 
+/* region flags */
+#define REG_R 0x4
+#define REG_W 0x2
+#define REG_X 0x1
+
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -71,42 +76,34 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
+        int result;
         struct addrspace *new;
-        struct region *old_curr, *new_curr;
-        struct page_table_entry *new_pte, *old_pte;
+        struct region *curr;
 
         new = as_create();
         if (new == NULL) {
                 return ENOMEM;
         }
 
-        /*
-         * Write this.
-         */
-
-        old_curr = old->regions;
-        new_curr = new->regions;
-        for (; old_curr != NULL; old_curr = old_curr->next) {
-                new_curr = kmalloc(sizeof(struct region));
-                if (new_curr == NULL) {
+        /* add regions from old to new */
+        for (curr = old->regions; curr != NULL; curr = curr->next) {
+                result = as_define_region(new, 
+                                        curr->vbase, 
+                                        curr->size, 
+                                        curr->accmode & REG_R, 
+                                        curr->accmode & REG_W,
+                                        curr->accmode & REG_X);
+                if (result) {
                         as_destroy(new);
-                        return ENOMEM;
+                        return result;
                 }
+        }
 
-                new_curr->vbase = old_curr->vbase;
-                new_curr->size = old_curr->size;
-                new_curr->accmode = old_curr->accmode;
-
-                old_pte = page_table_get(old, old_curr->vbase);
-                if (old_pte != NULL) {
-                        new_pte = page_table_insert(new, new_curr->vbase, new_curr);
-
-                        memmove((void *) PADDR_TO_KVADDR(new_pte->elo & TLBLO_PPAGE), 
-                                        (const void *) PADDR_TO_KVADDR(old_pte->elo & TLBLO_PPAGE), 
-                                        PAGE_SIZE);
-                }
-
-                new_curr = new_curr->next;
+        /* copy old page table entries to new ones */
+        result = page_table_copy(old, new);
+        if (result) {
+                as_destroy(new);
+                return result;
         }
 
         *ret = new;
