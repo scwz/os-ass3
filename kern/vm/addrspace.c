@@ -77,36 +77,36 @@ int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
         int result;
-        struct addrspace *new;
+        struct addrspace *newas;
         struct region *curr;
 
-        new = as_create();
-        if (new == NULL) {
+        newas = as_create();
+        if (newas == NULL) {
                 return ENOMEM;
         }
 
         /* add regions from old to new */
         for (curr = old->regions; curr != NULL; curr = curr->next) {
-                result = as_define_region(new, 
+                result = as_define_region(newas, 
                                         curr->vbase, 
                                         curr->size, 
                                         curr->accmode & REG_R, 
                                         curr->accmode & REG_W,
                                         curr->accmode & REG_X);
                 if (result) {
-                        as_destroy(new);
+                        as_destroy(newas);
                         return result;
                 }
         }
 
         /* copy old page table entries to new ones */
-        result = page_table_copy(old, new);
+        result = page_table_copy(old, newas);
         if (result) {
-                as_destroy(new);
+                as_destroy(newas);
                 return result;
         }
 
-        *ret = new;
+        *ret = newas;
         return 0;
 }
 
