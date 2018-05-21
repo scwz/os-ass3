@@ -25,7 +25,7 @@ hpt_hash(struct addrspace *as, vaddr_t faultaddr)
         return index;
 }
 
-void 
+static void 
 page_table_init(void) 
 {
         for (size_t i = 0; i < hpt_size; i++) {
@@ -33,62 +33,85 @@ page_table_init(void)
         }
 }
 
-struct page_table_entry *
-page_table_insert(struct addrspace *as, vaddr_t faultaddr, 
-                struct region *region) 
+static struct page_table_entry *
+page_table_insert(struct addrspace *as, vaddr_t faultaddr, int accmode) 
 {
         vaddr_t vaddr;
-        struct page_table_entry *pt_entry = NULL;
+        struct page_table_entry *pte;
         uint32_t hash = hpt_hash(as, faultaddr);
 
-        pt_entry = kmalloc(sizeof(struct page_table_entry));
-        if (pt_entry == NULL) {
+        pte = kmalloc(sizeof(struct page_table_entry));
+        if (pte == NULL) {
                 return NULL;
         }
 
         /* allocate a frame */
         vaddr = alloc_kpages(1);
 
-        pt_entry->pid = (uint32_t) as;
-        pt_entry->vpn = faultaddr;
-        pt_entry->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
+        pte->pid = (uint32_t) as;
+        pte->vpn = faultaddr;
+        pte->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
  
-        if (region->accmode & TLBLO_DIRTY) {
-//                pt_entry->elo |= TLBLO_DIRTY;
+        if (accmode & TLBLO_DIRTY) {
+//                pte->elo |= TLBLO_DIRTY;
         }
 
-        lock_acquire(pt_lock);
+        pte->next = page_table[hash];
+        page_table[hash] = pte;
 
-        pt_entry->next = page_table[hash];
-        page_table[hash] = pt_entry;
-
-        lock_release(pt_lock);
-
-        return pt_entry;
+        return pte;
 }
 
-struct page_table_entry *
+static struct page_table_entry *
 page_table_get(struct addrspace *as, vaddr_t faultaddr) 
 {
         uint32_t pid, hash;
-        struct page_table_entry *pt_entry = NULL;
+        struct page_table_entry *curr;
 
         pid = (uint32_t) as;
         hash = hpt_hash(as, faultaddr);
 
-        lock_acquire(pt_lock);
-
-        for (pt_entry = page_table[hash]; pt_entry != NULL; 
-                                                pt_entry = pt_entry->next) {
-                if (pt_entry->pid == pid && pt_entry->vpn == faultaddr) {
-                        lock_release(pt_lock);
-                        return pt_entry;
+        for (curr = page_table[hash]; curr != NULL; curr = curr->next) {
+                if (curr->pid == pid && curr->vpn == faultaddr) {
+                        return curr;
                 }
         }
 
-        lock_release(pt_lock);
-
         return NULL;
+}
+
+int
+page_table_copy(struct addrspace *oldas, struct addrspace *newas) 
+{
+        struct page_table_entry *curr, *new;
+
+        for (size_t i = 0; i < hpt_size; i++) {
+                lock_acquire(pt_lock);
+                for(curr = page_table[i]; curr != NULL; curr = curr->next) {
+                        if (curr->pid == (uint32_t) oldas) {
+                                new = page_table_insert(newas, 
+                                                        curr->vpn, 
+                                                        curr->elo & ~TLBLO_PPAGE);
+                                if (new == NULL) {
+                                        return ENOMEM;
+                                }
+
+                                memmove((void *) PADDR_TO_KVADDR(new->elo & TLBLO_PPAGE),
+                                        (void *) PADDR_TO_KVADDR(curr->elo & TLBLO_PPAGE),
+                                        PAGE_SIZE);
+                        }
+                }
+                lock_release(pt_lock); 
+        }
+
+        return 0;
+}
+
+void
+page_table_remove(struct addrspace *as) 
+{
+        // TODO: write this
+        (void) as;
 }
 
 void vm_bootstrap(void)
@@ -125,37 +148,6 @@ region_get(struct addrspace *as, vaddr_t faultaddress)
         }
 
         return NULL;
-}
-
-int
-page_table_copy(struct addrspace *oldas, struct addrspace *newas) 
-{
-        uint32_t hash;
-        struct page_table_entry *pte, *new;
-        vaddr_t vaddr;
-
-        for (size_t i = 0; i < hpt_size; i++) {
-                lock_acquire(pt_lock);
-                for(pte = page_table[i]; pte != NULL; pte = pte->next) {
-                        if (pte->pid == (uint32_t) oldas) {
-                                new = kmalloc(sizeof(struct page_table_entry));
-                                vaddr = alloc_kpages(1);
-                                new->pid = (uint32_t) newas;
-                                new->vpn = pte->vpn;
-                                new->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_DIRTY | TLBLO_VALID;
-
-                                memmove((void *) PADDR_TO_KVADDR(new->elo & TLBLO_PPAGE),
-                                        (void *) PADDR_TO_KVADDR(pte->elo & TLBLO_PPAGE),
-                                        PAGE_SIZE);
-                                hash = hpt_hash(newas, new->vpn);
-                                new->next = page_table[hash];
-                                page_table[hash] = new;
-                        }
-                }
-                lock_release(pt_lock); 
-        }
-
-        return 0;
 }
 
 int
@@ -196,7 +188,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
+        lock_acquire(pt_lock);
         pte = page_table_get(as, faultaddress);
+        lock_release(pt_lock);
 
         if (pte == NULL) {
                 /* find valid region */
@@ -207,7 +201,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                 }
 
                 /* insert into page table */
-                pte = page_table_insert(as, faultaddress, region);
+                lock_acquire(pt_lock);
+                pte = page_table_insert(as, faultaddress, region->accmode);
+                lock_release(pt_lock);
+
                 if (pte == NULL) {
                         return ENOMEM;
                 }

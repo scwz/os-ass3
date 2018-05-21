@@ -77,11 +77,7 @@ void vm_tlbshootdown(const struct tlbshootdown *);
 void frame_table_init(unsigned int nframes);
 
 /* Page table functions */
-void page_table_init(void);
-struct page_table_entry *page_table_insert(struct addrspace *as, 
-                vaddr_t faultaddr, struct region *region);
-struct page_table_entry *page_table_get(struct addrspace *as, 
-                vaddr_t faultaddr);
 int page_table_copy(struct addrspace *oldas, struct addrspace *newas);
+void page_table_remove(struct addrspace *as);
 
 #endif /* _VM_H_ */

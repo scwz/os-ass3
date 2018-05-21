@@ -126,6 +126,8 @@ as_destroy(struct addrspace *as)
                 curr = next;
         }
 
+        page_table_remove(as);
+
         kfree(as);
 }
 
