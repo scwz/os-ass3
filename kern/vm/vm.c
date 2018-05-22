@@ -110,8 +110,29 @@ page_table_copy(struct addrspace *oldas, struct addrspace *newas)
 void
 page_table_remove(struct addrspace *as) 
 {
-        // TODO: write this
-        (void) as;
+        struct page_table_entry *curr, *next, *prev;
+
+        for (size_t i = 0; i < hpt_size; i++) {
+                lock_acquire(pt_lock);
+                prev = NULL;
+                for (curr = page_table[i]; curr != NULL; curr = next) {
+                        next = curr->next;
+                        if (curr->pid == (uint32_t) as) {
+                                free_kpages(PADDR_TO_KVADDR(curr->elo & TLBLO_PPAGE));
+                                kfree(curr);
+                                if (prev != NULL) {
+                                        prev->next = next;
+                                }
+                                else {
+                                        page_table[i] = next;
+                                }
+                        }
+                        else {
+                                prev = curr;
+                        }
+                }
+                lock_release(pt_lock); 
+        }
 }
 
 void vm_bootstrap(void)
