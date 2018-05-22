@@ -38,8 +38,12 @@
 #include <vm.h>
 #include "opt-dumbvm.h"
 
-struct vnode;
+/* region flags */
+#define REGION_R 0x4
+#define REGION_W 0x2
+#define REGION_X 0x1
 
+struct vnode;
 
 /*
  * Address space - data structure associated with the virtual memory

@@ -40,11 +40,6 @@
 
 #define STACK_PAGES 16
 
-/* region flags */
-#define REG_R 0x4
-#define REG_W 0x2
-#define REG_X 0x1
-
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
@@ -90,9 +85,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 result = as_define_region(newas, 
                                         curr->vbase, 
                                         curr->size, 
-                                        curr->accmode & REG_R, 
-                                        curr->accmode & REG_W,
-                                        curr->accmode & REG_X);
+                                        curr->accmode & REGION_R, 
+                                        curr->accmode & REGION_W,
+                                        curr->accmode & REGION_X);
                 if (result) {
                         as_destroy(newas);
                         return result;
@@ -228,7 +223,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
         *stackptr = USERSTACK;
         result = as_define_region(as, 
                                 USERSTACK - STACK_PAGES * PAGE_SIZE, 
-                                STACK_PAGES * PAGE_SIZE, 1, 1, 0);
+                                STACK_PAGES * PAGE_SIZE, 
+                                REGION_R, REGION_W, 0);
 
         return result;
 }

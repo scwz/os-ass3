@@ -56,8 +56,6 @@ vaddr_t alloc_kpages(unsigned int npages)
                 }
         }
         else {
-                KASSERT(npages == 1);   // remove this line later
-
                 /* only allocate 1 page */
                 if (npages != 1) {
                         return 0;
