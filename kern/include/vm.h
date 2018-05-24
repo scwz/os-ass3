@@ -79,5 +79,6 @@ void frame_table_init(unsigned int nframes);
 /* Page table functions */
 int page_table_copy(struct addrspace *oldas, struct addrspace *newas);
 void page_table_remove(struct addrspace *as);
+void page_table_load(struct addrspace *as, struct region *rgn, int load);
 
 #endif /* _VM_H_ */

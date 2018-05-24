@@ -50,10 +50,10 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr, int accmode)
 
         pte->pid = (uint32_t) as;
         pte->vpn = faultaddr;
-        pte->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID | TLBLO_DIRTY; 
+        pte->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID; 
  
-        if (accmode & TLBLO_DIRTY) {
-//                pte->elo |= TLBLO_DIRTY;
+        if (accmode & REGION_W) {
+                pte->elo |= TLBLO_DIRTY;
         }
 
         pte->next = page_table[hash];
@@ -80,6 +80,22 @@ page_table_get(struct addrspace *as, vaddr_t faultaddr)
         return NULL;
 }
 
+static struct region *
+region_get(struct addrspace *as, vaddr_t faultaddress)
+{
+        vaddr_t vtop;
+        struct region *curr;
+
+        for (curr = as->regions; curr != NULL; curr = curr->next) {
+                vtop = curr->vbase + curr->size;
+                if (faultaddress >= curr->vbase && faultaddress < vtop) {
+                        return curr;
+                }
+        }
+
+        return NULL;
+}
+
 int
 page_table_copy(struct addrspace *oldas, struct addrspace *newas) 
 {
@@ -89,9 +105,10 @@ page_table_copy(struct addrspace *oldas, struct addrspace *newas)
                 lock_acquire(pt_lock);
                 for(curr = page_table[i]; curr != NULL; curr = curr->next) {
                         if (curr->pid == (uint32_t) oldas) {
+                                struct region *rgn = region_get(oldas, curr->vpn);
                                 new = page_table_insert(newas, 
                                                         curr->vpn, 
-                                                        curr->elo & ~TLBLO_PPAGE);
+                                                        rgn->accmode);
                                 if (new == NULL) {
                                         return ENOMEM;
                                 }
@@ -135,6 +152,31 @@ page_table_remove(struct addrspace *as)
         }
 }
 
+void
+page_table_load(struct addrspace *as, struct region *rgn, int load) 
+{
+        struct page_table_entry *curr;
+
+        for (size_t i = 0; i < hpt_size; i++) {
+                lock_acquire(pt_lock);
+                for(curr = page_table[i]; curr != NULL; curr = curr->next) {
+                        uint32_t pid = (uint32_t) as;
+                        if (curr->pid == pid && curr->vpn == rgn->vbase) {
+                                if (load) {
+                                        curr->elo |= TLBLO_DIRTY;
+                                }
+                                else {
+                                        if (!(rgn->accmode & REGION_W)) {
+                                                curr->elo &= ~TLBLO_DIRTY;
+                                        }
+                                }
+                        }
+                }
+                lock_release(pt_lock); 
+        }
+}
+
+
 void vm_bootstrap(void)
 {
         unsigned int nframes;
@@ -153,22 +195,6 @@ void vm_bootstrap(void)
         if (pt_lock == NULL) {
                 panic("vm: failed to create page table lock");
         }
-}
-
-static struct region *
-region_get(struct addrspace *as, vaddr_t faultaddress)
-{
-        vaddr_t vtop;
-        struct region *curr;
-
-        for (curr = as->regions; curr != NULL; curr = curr->next) {
-                vtop = curr->vbase + curr->size;
-                if (faultaddress >= curr->vbase && faultaddress < vtop) {
-                        return curr;
-                }
-        }
-
-        return NULL;
 }
 
 int
