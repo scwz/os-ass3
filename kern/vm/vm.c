@@ -34,7 +34,7 @@ page_table_init(void)
 }
 
 static struct page_table_entry *
-page_table_insert(struct addrspace *as, vaddr_t faultaddr, int accmode) 
+page_table_insert(struct addrspace *as, vaddr_t faultaddr, uint32_t perms) 
 {
         vaddr_t vaddr;
         struct page_table_entry *pte;
@@ -50,11 +50,13 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr, int accmode)
 
         pte->pid = (uint32_t) as;
         pte->vpn = faultaddr;
-        pte->elo = KVADDR_TO_PADDR(vaddr) | TLBLO_VALID; 
+        pte->elo = KVADDR_TO_PADDR(vaddr) | perms; 
  
+        /*
         if (accmode & REGION_W) {
                 pte->elo |= TLBLO_DIRTY;
         }
+        */
 
         pte->next = page_table[hash];
         page_table[hash] = pte;
@@ -105,10 +107,10 @@ page_table_copy(struct addrspace *oldas, struct addrspace *newas)
                 lock_acquire(pt_lock);
                 for(curr = page_table[i]; curr != NULL; curr = curr->next) {
                         if (curr->pid == (uint32_t) oldas) {
-                                struct region *rgn = region_get(oldas, curr->vpn);
+                                //struct region *rgn = region_get(oldas, curr->vpn);
                                 new = page_table_insert(newas, 
                                                         curr->vpn, 
-                                                        rgn->accmode);
+                                                        curr->elo & ~TLBLO_PPAGE);
                                 if (new == NULL) {
                                         return ENOMEM;
                                 }
@@ -201,6 +203,7 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
         int spl;
+        uint32_t perms;
         struct addrspace *as;
         struct region *region;
         struct page_table_entry *pte;
@@ -247,9 +250,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return EFAULT;
                 }
 
+                perms = TLBLO_VALID;
+                if (region->accmode & REGION_W) {
+                        perms |= TLBLO_DIRTY;
+                }
+
                 /* insert into page table */
                 lock_acquire(pt_lock);
-                pte = page_table_insert(as, faultaddress, region->accmode);
+                pte = page_table_insert(as, faultaddress, perms);
                 lock_release(pt_lock);
 
                 if (pte == NULL) {
