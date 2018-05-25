@@ -39,9 +39,9 @@
 #include "opt-dumbvm.h"
 
 /* region flags */
-#define REGION_R 0x4
-#define REGION_W 0x2
-#define REGION_X 0x1
+#define RGN_R 0x4
+#define RGN_W 0x2
+#define RGN_X 0x1
 
 struct vnode;
 

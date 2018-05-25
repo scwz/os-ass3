@@ -85,9 +85,9 @@ as_copy(struct addrspace *old, struct addrspace **ret)
                 result = as_define_region(newas, 
                                         curr->vbase, 
                                         curr->size, 
-                                        curr->accmode & REGION_R, 
-                                        curr->accmode & REGION_W,
-                                        curr->accmode & REGION_X);
+                                        curr->accmode & RGN_R, 
+                                        curr->accmode & RGN_W,
+                                        curr->accmode & RGN_X);
                 if (result) {
                         as_destroy(newas);
                         return result;
@@ -201,7 +201,7 @@ as_prepare_load(struct addrspace *as)
          */
         struct region *curr;
         for (curr = as->regions; curr != NULL; curr = curr->next) {
-                curr->accmode = (curr->accmode << 3) | REGION_R | REGION_W | REGION_X;
+                curr->accmode = (curr->accmode << 3) | RGN_R | RGN_W | RGN_X;
  //               page_table_load(as, curr, 1);
         }
         return 0;
@@ -233,7 +233,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
         result = as_define_region(as, 
                                 USERSTACK - STACK_PAGES * PAGE_SIZE, 
                                 STACK_PAGES * PAGE_SIZE, 
-                                REGION_R, REGION_W, 0);
+                                RGN_R, RGN_W, 0);
 
         return result;
 }

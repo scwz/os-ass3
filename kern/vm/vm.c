@@ -51,12 +51,6 @@ page_table_insert(struct addrspace *as, vaddr_t faultaddr, uint32_t perms)
         pte->pid = (uint32_t) as;
         pte->vpn = faultaddr;
         pte->elo = KVADDR_TO_PADDR(vaddr) | perms; 
- 
-        /*
-        if (accmode & REGION_W) {
-                pte->elo |= TLBLO_DIRTY;
-        }
-        */
 
         pte->next = page_table[hash];
         page_table[hash] = pte;
@@ -107,7 +101,6 @@ page_table_copy(struct addrspace *oldas, struct addrspace *newas)
                 lock_acquire(pt_lock);
                 for(curr = page_table[i]; curr != NULL; curr = curr->next) {
                         if (curr->pid == (uint32_t) oldas) {
-                                //struct region *rgn = region_get(oldas, curr->vpn);
                                 new = page_table_insert(newas, 
                                                         curr->vpn, 
                                                         curr->elo & ~TLBLO_PPAGE);
@@ -168,7 +161,7 @@ page_table_load(struct addrspace *as, struct region *rgn, int load)
                                         curr->elo |= TLBLO_DIRTY;
                                 }
                                 else {
-                                        if (!(rgn->accmode & REGION_W)) {
+                                        if (!(rgn->accmode & RGN_W)) {
                                                 curr->elo &= ~TLBLO_DIRTY;
                                         }
                                 }
@@ -250,8 +243,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return EFAULT;
                 }
 
+                /* check if region is writable */
                 perms = TLBLO_VALID;
-                if (region->accmode & REGION_W) {
+                if (region->accmode & RGN_W) {
                         perms |= TLBLO_DIRTY;
                 }
 
