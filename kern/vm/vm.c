@@ -32,6 +32,17 @@ page_table_init(void)
                 page_table[i] = NULL;
         }
 }
+void printpt(void) {
+        struct page_table_entry *curr;
+
+        for (size_t i = 0; i < hpt_size; i++) {
+                lock_acquire(pt_lock);
+                for(curr = page_table[i]; curr != NULL; curr = curr->next) {
+                        kprintf("%d %d\n", curr->vpn, curr->elo & TLBLO_DIRTY);
+                }
+                lock_release(pt_lock); 
+        }
+}
 
 static struct page_table_entry *
 page_table_insert(struct addrspace *as, vaddr_t faultaddr, uint32_t perms) 
@@ -196,7 +207,7 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
         int spl;
-        uint32_t perms;
+        uint32_t perms, elo;
         struct addrspace *as;
         struct region *region;
         struct page_table_entry *pte;
@@ -258,10 +269,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return ENOMEM;
                 }
         }
+        elo = pte->elo;
+        if (as->loadbit) {
+                elo |= TLBLO_DIRTY;
+        }
 
         /* valid translation, write into tlb */
         spl = splhigh();
-        tlb_random(faultaddress, pte->elo);
+        tlb_random(faultaddress, elo);
         splx(spl);
 
         return 0;

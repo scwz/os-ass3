@@ -200,9 +200,13 @@ as_prepare_load(struct addrspace *as)
          * Write this.
          */
         struct region *curr;
+        kprintf("beofre\n");
+        printpt();
+        as->loadbit = 1;
         for (curr = as->regions; curr != NULL; curr = curr->next) {
-                curr->accmode = (curr->accmode << 3) | RGN_R | RGN_W | RGN_X;
- //               page_table_load(as, curr, 1);
+                kprintf("%u %u %d\n", curr->vbase, curr->size, curr->accmode);
+ //               curr->accmode = (curr->accmode << 3) | RGN_R | RGN_W | RGN_X;
+//                page_table_load(as, curr, 1);
         }
         return 0;
 }
@@ -213,13 +217,18 @@ as_complete_load(struct addrspace *as)
         /*
          * Write this.
          */
+        kprintf("after\n");
+        printpt();
 
         struct region *curr;
         for (curr = as->regions; curr != NULL; curr = curr->next) {
-                curr->accmode = (curr->accmode >> 3);
-//                page_table_load(as, curr, 0);
+  //              curr->accmode = (curr->accmode >> 3);
+                kprintf("%u %u %d\n", curr->vbase, curr->size, curr->accmode);
+ //               page_table_load(as, curr, 0);
         }
-        (void)as;
+        as->loadbit = 0;
+        kprintf("complete\n");
+        printpt();
         return 0;
 }
 
