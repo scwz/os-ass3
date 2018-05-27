@@ -129,22 +129,22 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
-	int i, spl;
-	struct addrspace *as;
+        int i, spl;
+        struct addrspace *as;
 
-	as = proc_getas();
-	if (as == NULL) {
-		return;
-	}
+        as = proc_getas();
+        if (as == NULL) {
+                return;
+        }
 
-	/* Disable interrupts on this CPU while frobbing the TLB. */
-	spl = splhigh();
+        /* Disable interrupts on this CPU while frobbing the TLB. */
+        spl = splhigh();
 
-	for (i=0; i<NUM_TLB; i++) {
-		tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-	}
+        for (i=0; i<NUM_TLB; i++) {
+                tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+        }
 
-	splx(spl);
+        splx(spl);
 }
 
 void
@@ -174,8 +174,8 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 {
         struct region *curr;
 
-	/* align the region */
-	vaddr &= PAGE_FRAME;
+        /* align the region */
+        vaddr &= PAGE_FRAME;
         memsize = ROUNDUP(memsize, PAGE_SIZE);
 
         curr = kmalloc(sizeof(struct region));

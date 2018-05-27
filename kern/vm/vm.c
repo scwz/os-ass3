@@ -224,23 +224,23 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return EINVAL;
         }
 
-	if (curproc == NULL) {
-		/*
-		 * No process. This is probably a kernel fault early
-		 * in boot. Return EFAULT so as to panic instead of
-		 * getting into an infinite faulting loop.
-		 */
-		return EFAULT;
-	}
+        if (curproc == NULL) {
+                /*
+                 * No process. This is probably a kernel fault early
+                 * in boot. Return EFAULT so as to panic instead of
+                 * getting into an infinite faulting loop.
+                 */
+                return EFAULT;
+        }
 
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * No address space set up. This is probably also a
-		 * kernel fault early in boot.
-		 */
-		return EFAULT;
-	}
+        as = proc_getas();
+        if (as == NULL) {
+                /*
+                 * No address space set up. This is probably also a
+                 * kernel fault early in boot.
+                 */
+                return EFAULT;
+        }
 
         lock_acquire(pt_lock);
         pte = page_table_get(as, faultaddress);
