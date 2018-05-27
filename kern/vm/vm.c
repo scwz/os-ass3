@@ -32,17 +32,6 @@ page_table_init(void)
                 page_table[i] = NULL;
         }
 }
-void printpt(void) {
-        struct page_table_entry *curr;
-
-        for (size_t i = 0; i < hpt_size; i++) {
-                lock_acquire(pt_lock);
-                for(curr = page_table[i]; curr != NULL; curr = curr->next) {
-                        kprintf("%d %d\n", curr->vpn, curr->elo & TLBLO_DIRTY);
-                }
-                lock_release(pt_lock); 
-        }
-}
 
 static struct page_table_entry *
 page_table_insert(struct addrspace *as, vaddr_t faultaddr, uint32_t perms) 
@@ -158,31 +147,6 @@ page_table_remove(struct addrspace *as)
         }
 }
 
-void
-page_table_load(struct addrspace *as, struct region *rgn, int load) 
-{
-        struct page_table_entry *curr;
-
-        for (size_t i = 0; i < hpt_size; i++) {
-                lock_acquire(pt_lock);
-                for(curr = page_table[i]; curr != NULL; curr = curr->next) {
-                        uint32_t pid = (uint32_t) as;
-                        if (curr->pid == pid && curr->vpn == rgn->vbase) {
-                                if (load) {
-                                        curr->elo |= TLBLO_DIRTY;
-                                }
-                                else {
-                                        if (!(rgn->accmode & RGN_W)) {
-                                                curr->elo &= ~TLBLO_DIRTY;
-                                        }
-                                }
-                        }
-                }
-                lock_release(pt_lock); 
-        }
-}
-
-
 void vm_bootstrap(void)
 {
         unsigned int nframes;
@@ -269,10 +233,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
                         return ENOMEM;
                 }
         }
-        elo = pte->elo;
-        if (as->loadbit) {
-                elo |= TLBLO_DIRTY;
-        }
+        elo = as->load ? (pte->elo | TLBLO_DIRTY) : pte->elo;
 
         /* valid translation, write into tlb */
         spl = splhigh();

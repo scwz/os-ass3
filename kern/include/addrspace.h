@@ -71,7 +71,7 @@ struct addrspace {
 #else
         /* Put stuff here for your VM system */
         struct region *regions;
-        int loadbit;
+        bool load;
 #endif
 };
 

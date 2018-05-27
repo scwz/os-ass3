@@ -64,6 +64,7 @@ as_create(void)
          * Initialize as needed.
          */
         as->regions = NULL;
+        as->load = false;
 
         return as;
 }
@@ -199,7 +200,7 @@ as_prepare_load(struct addrspace *as)
         /*
          * Write this.
          */
-        as->loadbit = 1;
+        as->load = true;
         return 0;
 }
 
@@ -210,7 +211,7 @@ as_complete_load(struct addrspace *as)
          * Write this.
          */
 
-        as->loadbit = 0;
+        as->load = false;
         return 0;
 }
 
