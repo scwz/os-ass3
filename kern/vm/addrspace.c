@@ -197,9 +197,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 int
 as_prepare_load(struct addrspace *as)
 {
-        /*
-         * Write this.
-         */
         as->load = true;
         return 0;
 }
@@ -207,10 +204,6 @@ as_prepare_load(struct addrspace *as)
 int
 as_complete_load(struct addrspace *as)
 {
-        /*
-         * Write this.
-         */
-
         as->load = false;
         return 0;
 }
