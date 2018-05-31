@@ -205,6 +205,7 @@ int
 as_complete_load(struct addrspace *as)
 {
         as->load = false;
+        as_activate();
         return 0;
 }
 
