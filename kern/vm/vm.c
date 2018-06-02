@@ -162,9 +162,6 @@ void vm_bootstrap(void)
         page_table_init();
 
         pt_lock = lock_create("page_table_lock");
-        if (pt_lock == NULL) {
-                panic("vm: failed to create page table lock");
-        }
 }
 
 int
