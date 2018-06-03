@@ -2,22 +2,26 @@ Memory Management
 
 We utilise a frame table to monitor physical memory in the system. In
 vm_bootstrap, the appropriate amount of frames is allocated based on the size
-of the RAM divided by the size of our pages.
+of the RAM divided by the size of our pages. We use the bump allocator used 
+by dumbvm to allocate space for the frame and page tables whilst the frame table
+is still uninitialised, then use ram_getfirstfree() to figure out which frames
+are available and which frames have already been used up.
 
 The frame table simply allocates space for a linked list of free frames - each
 individual frame keeps a pointer to the next available frame. Allocating a
-frame simply removes the frame from the list, and freeing a frame returns it to
-the front of the list. Access to this table is protected by a single lock to
-prevent concurrent access.
+frame simply removes the frame from the head of the list, and freeing a frame 
+prepends it to the head of the list. Both these procedures take constant time. 
+Each frame is also zero filled upon allocation. Access to this table and the 
+bump allocator is protected by a spin lock to synchronise access.
 
 
 Address Space Management
 
 We define the addrspace struct of a process as a linked list of region structs
-and a boolean to indicate whether the executable of a process is loaded into
-the space. The linked list of region structs keeps track of memory regions
-within the space - their location, size, read/write permissions, and a pointer
-to the next region.
+and a boolean to indicate whether the executable of a process is being loaded 
+into the space. The linked list of region structs keeps track of memory regions
+within the space - their virtual address, size, read/write permissions, and a 
+pointer to the next region.
 
 
 Address space function implementation
@@ -28,8 +32,10 @@ empty address space. No region structs are allocated yet.
 as_copy - to create a copy of an existing address space, call as_create to make
 a new space and iterate through the linked list of existing regions to copy to
 the new space (using the as_define_region function to create new regions as we
-iterate through the list). This also requires us to create a copy of the old
-process's page table.
+iterate through the list). We then trawl through the page table to copy any 
+entries belonging to the old address space to the new address space, whilst also
+allocating new frames for the new address space and copying the data from the old
+frame to the new frame.
 
 as_activate - make the current process's address space the one currently seen
 by the processor. This also flushes the TLB to ensure no incorrect mappings
@@ -38,7 +44,8 @@ persist when switching between address spaces.
 as_deactivate - this also flushes the tlb.
 
 as_destroy - frees memory associated with the address space by first freeing
-the region list, then the process's page table, then the address space. 
+the region list, then the process's page table entries (and frames) by trawling 
+through the entire page table, then the address space. 
 
 as_define_region - allocates space for a new region struct based on the given
 address (aligned to the next frame boundary), size (rounded up to page size)
@@ -46,11 +53,11 @@ and permissions. This region is added to the linked list of regions for the
 address space.
 
 as_prepare_load - changes the load flag in the addrspace struct to signify a
-load is about to occur.
+load is about to occur, i.e. every region should be writable.
 
 as_complete_load - changes the load flag in the addrspace struct to signify a
-load has completed, and calls as_activate to flush the TLB and switch to the
-correct address space.
+load has completed, i.e. every read-only region should no longer be writable 
+and calls as_activate to flush the TLB to remove the writable read-only entries.
 
 as_define_stack - allocates memory for the stack of the address space by
 offsetting from the top of the userspace. This is added to the region linked
@@ -59,20 +66,20 @@ list.
 
 Page Table Structure
 
-We implement the hashed page table as an array of entries which keep track of
+We implement the hashed page table as an array of linked lists which keep track of
 the process id, virtual page number, permissions and pointer to the next entry
-(for managing hash collisions). Adding entries to this table requires use of
-the hashing function which dictates the index of the new entry (the insertion
-is also protected from concurrent access by a lock).
+(for managing hash collisions). The table is sized to be two times the amount of 
+physical frames. Access to the page table requires use of the hashing function which 
+dictates the index of the an entry and is synchronised by a simple lock.
 
 The function vm_fault is the general exception handler which covers errors with
 invalid instructions or writing to memory with read only permissions. More
 importantly it also covers the case of a TLB miss. In the case of a TLB miss,
-it looks for the correct frame in the process's page table instead. If the
-mapping is found in the page table, this is written back to a random slot in
-the TLB to update it.
+we first check if the fault type is read-writable, if it is read-only we return EFAULT.
+It then checks the page table for a valid translation. If the translation is found in 
+the page table, it is written back to a random slot in the TLB to update it.
 
-In the case where the frame mapping is not found in the page table, we allocate
-a new frame, loading it into main memory and assigning it to a page in the
-page table using the hashing function. We then also write this mapping to a
-random slot in the TLB.
+In the case where a translation is not found in the page table, we check if the fault
+address lies in a valid region. If it doesn't we return EFAULT. If it does, we allocate
+a new frame, and create a new entry in the page table. We then also write this mapping to 
+a random slot in the TLB.
