@@ -1,1 +1,66 @@
-Place your design document here.
+Memory Management
+
+We utilise a frame table to monitor physical memory in the system. In
+vm_bootstrap, the appropriate amount of frames is allocated based on the size
+of the RAM divided by the size of our pages.
+
+The frame table simply allocates space for a linked list of free frames -  each
+individual frame keeps a pointer to the next available frame space. Allocating
+a frame simply removes the frame from the list, and freeing a frame returns it
+to the front of the list. Access to this table is protected by a single lock to
+prevent concurrent access.
+
+
+Address Space Management
+
+We define the addrspace struct of a process as a linked list of region structs
+and a boolean to indicate whether the executable of a process is loaded into
+the space. The region structs keeps track of memory regions within the space -
+their location, size, read/write permissions, and a pointer to the next region.
+
+Address space function implementation
+
+as_create - simply allocate space for a new addrspace struct to represent an
+empty address space. No region structs are allocated yet.
+
+as_copy - to create a copy of an existing address space, call as_create to make
+a new space and iterate through the linked list of existing regions to copy to
+the new space (using the as_define_region function to create new regions as we
+iterate through the list). This also requires us to create a copy of the old
+process's page table.
+
+as_activate - make the current process's address space the one currently seen
+by the processor. This also flushes the TLB to ensure no incorrect mappings persist
+when switching between address spaces.
+
+as_deactivate -  
+
+as_destroy - frees memory associated with the address space by first freeing
+the region list, then the associated page table, then the address space. 
+
+as_define_region - allocates space for a new region struct based on the given
+address (aligned to the next frame boundary), size (rounded up to page
+size) and permissions. This region is added to the linked list of regions for
+the address space.
+
+as_prepare_load - changes the load flag in the addrspace struct to signify a
+load is about to occur.
+
+as_complete_load - changes the load flag in the addrspace struct to signify a
+load has completed, and calls as_activate to flush the TLB and switch to the
+correct address space
+
+as_define_stack - allocates memory for the stack of the address space by
+offsetting from the top of the userspace. This is added to the region linked
+list.
+
+
+Page Table Structure
+
+We implement the hashed page table as an array of entries which keep track of
+the process id, virtual page number, permissions and pointer to the next entry
+(for managing hash collisions).
+
+
+/** how vmfault works **/
+
